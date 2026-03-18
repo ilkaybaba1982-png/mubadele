@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mübadele · Ανταλλαγή · Exchange</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===== RESET & ROOT ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+:root{
+  --ink:#0a0604;
+  --fog:#1a0f08;
+  --fog2:#141008;
+  --card:#1c1408;
+  --sand:#c49a5a;
+  --sand-light:#e8c87a;
+  --sand-pale:rgba(196,154,90,0.12);
+  --sand-border:rgba(196,154,90,0.18);
+  --sea:#1e5f7a;
+  --sea-light:#3a8fab;
+  --rust:#8b2c1a;
+  --cream:#f5ede0;
+  --cream-dim:rgba(245,237,224,0.65);
+  --cream-faint:rgba(245,237,224,0.35);
+  --green:#1D9E75;
+  --red:#E24B4A;
+  --ff-display:'Playfair Display',Georgia,serif;
+  --ff-body:'Cormorant Garamond',Georgia,serif;
+  --ff-ui:'Montserrat',sans-serif;
+  --r:8px;
+  --r-sm:5px;
+  --transition:0.22s ease;
+}
+body{font-family:var(--ff-ui);background:var(--ink);color:var(--cream);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ===== LAYOUT ===== */
+.shell{
+  max-width:480px;
+  margin:0 auto;
+  min-height:100vh;
+  background:var(--fog);
+  position:relative;
+  overflow-x:hidden;
+}
+@media(min-width:520px){
+  .shell{box-shadow:0 0 60px rgba(0,0,0,0.6);border-left:0.5px solid var(--sand-border);border-right:0.5px solid var(--sand-border)}
+}
+
+/* ===== PAGE SYSTEM ===== */
+.pg{display:none}
+.pg.on{display:block}
+
+/* ===== LANG BAR ===== */
+.lang-bar{
+  position:sticky;top:0;z-index:200;
+  display:flex;justify-content:flex-end;align-items:center;
+  padding:8px 14px;
+  background:rgba(10,6,4,0.95);
+  backdrop-filter:blur(8px);
+  border-bottom:0.5px solid var(--sand-border);
+  gap:0;
+}
+.lb{
+  font-family:var(--ff-ui);font-size:10px;letter-spacing:2px;
+  padding:5px 11px;border:0.5px solid rgba(196,154,90,0.25);
+  background:transparent;color:rgba(196,154,90,0.45);
+  cursor:pointer;transition:all var(--transition);
+}
+.lb:first-child{border-radius:3px 0 0 3px}
+.lb:last-child{border-radius:0 3px 3px 0}
+.lb:not(:last-child){border-right:none}
+.lb.on{background:var(--sand);color:var(--ink);border-color:var(--sand);font-weight:600}
+
+/* ===== HERO ===== */
+.hero{
+  position:relative;
+  height:clamp(300px,55vw,420px);
+  overflow:hidden;background:var(--ink);
+}
+.hero-svg{position:absolute;inset:0;width:100%;height:100%}
+.hero-vignette{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse 80% 70% at 50% 40%,transparent 20%,rgba(10,6,4,0.55) 100%);
+  pointer-events:none;
+}
+.hero-fade{
+  position:absolute;bottom:0;left:0;right:0;height:55%;
+  background:linear-gradient(to bottom,transparent,var(--fog) 95%);
+  pointer-events:none;
+}
+.hero-content{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:clamp(16px,4vw,28px);
+}
+.hero-eyebrow{
+  font-family:var(--ff-ui);font-size:clamp(9px,2vw,11px);
+  letter-spacing:4px;text-transform:uppercase;
+  color:var(--sand);opacity:.8;margin-bottom:clamp(6px,1.5vw,10px);
+}
+.hero-title{
+  font-family:var(--ff-display);
+  font-size:clamp(32px,9vw,52px);
+  font-weight:700;color:var(--cream);line-height:.95;
+}
+.hero-title em{
+  display:block;font-style:italic;font-weight:400;
+  font-size:.62em;color:var(--sand-light);margin-top:5px;
+}
+.hero-sub{
+  font-family:var(--ff-body);font-style:italic;
+  font-size:clamp(13px,3.5vw,17px);
+  color:var(--cream-faint);margin-top:clamp(5px,1.5vw,9px);
+}
+
+/* ===== BOTTOM NAV ===== */
+.nav{
+  display:flex;background:rgba(10,6,4,0.97);
+  border-bottom:0.5px solid var(--sand-border);
+  overflow-x:auto;scrollbar-width:none;
+  position:sticky;top:37px;z-index:180;
+}
+.nav::-webkit-scrollbar{display:none}
+.ni{
+  flex:1;min-width:clamp(56px,14vw,76px);
+  padding:12px 4px;border:none;border-bottom:2px solid transparent;
+  background:transparent;color:var(--cream-faint);
+  font-family:var(--ff-ui);font-size:clamp(9px,2.2vw,11px);
+  letter-spacing:1.2px;text-transform:uppercase;
+  cursor:pointer;white-space:nowrap;
+  transition:all var(--transition);
+}
+.ni.on{color:var(--sand-light);border-bottom-color:var(--sand)}
+.ni:hover:not(.on){color:var(--cream-dim)}
+
+/* ===== TAB PANES ===== */
+.pane{display:none;min-height:40vh}
+.pane.on{display:block}
+.pad{padding:clamp(14px,4vw,22px) clamp(14px,4vw,20px)}
+
+/* ===== SECTION EYEBROW ===== */
+.eye{
+  font-family:var(--ff-ui);font-size:9px;letter-spacing:3px;
+  text-transform:uppercase;color:rgba(196,154,90,.45);
+  margin-bottom:clamp(10px,2.5vw,14px);
+}
+
+/* ===== PAGE TITLE ===== */
+.page-title{
+  font-family:var(--ff-display);
+  font-size:clamp(20px,5.5vw,26px);
+  font-weight:400;color:var(--cream);
+  margin-bottom:clamp(12px,3vw,18px);
+}
+
+/* ===== TILES ===== */
+.tile-grid{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:clamp(8px,2.5vw,12px);
+  margin-bottom:clamp(16px,4vw,22px);
+}
+.tile{
+  background:var(--card);
+  border:0.5px solid var(--sand-border);border-radius:var(--r);
+  padding:clamp(12px,3.5vw,18px) clamp(12px,3vw,16px);
+  cursor:pointer;transition:border-color var(--transition),background var(--transition);
+  position:relative;overflow:hidden;
+}
+.tile::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(196,154,90,.07),transparent 60%);
+}
+.tile:hover,.tile:active{border-color:rgba(196,154,90,.5);background:#201808}
+.tile-icon{font-size:clamp(18px,5vw,24px);margin-bottom:7px}
+.tile-name{
+  font-family:var(--ff-body);
+  font-size:clamp(13px,3.5vw,16px);
+  color:var(--cream);
+}
+.tile-count{font-size:clamp(9px,2.5vw,11px);color:rgba(196,154,90,.5);margin-top:3px;letter-spacing:.5px}
+
+/* ===== STORY CARDS ===== */
+.s-card{
+  background:var(--card);border:0.5px solid var(--sand-border);
+  border-radius:var(--r);padding:clamp(12px,3.5vw,16px);
+  margin-bottom:clamp(8px,2vw,11px);position:relative;overflow:hidden;
+}
+.s-card::after{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--sand);opacity:.35}
+.s-user{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.av{
+  width:clamp(32px,8vw,38px);height:clamp(32px,8vw,38px);
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--ff-ui);font-size:11px;font-weight:600;flex-shrink:0;
+}
+.s-name{font-family:var(--ff-body);font-size:clamp(13px,3.5vw,15px);color:var(--cream)}
+.s-origin{font-size:clamp(9px,2.5vw,11px);color:rgba(196,154,90,.6);letter-spacing:.4px;margin-top:1px}
+.s-badge{
+  margin-left:auto;font-size:9px;letter-spacing:1px;
+  padding:3px 8px;border-radius:10px;
+  background:var(--sand-pale);color:var(--sand);
+  border:0.5px solid var(--sand-border);
+  font-family:var(--ff-ui);flex-shrink:0;
+}
+.s-text{
+  font-family:var(--ff-body);font-style:italic;
+  font-size:clamp(14px,3.8vw,16px);
+  color:var(--cream-dim);line-height:1.7;
+  margin-bottom:10px;
+}
+.s-actions{display:flex;gap:16px}
+.s-actions span{font-size:11px;color:rgba(196,154,90,.4);cursor:pointer;letter-spacing:.4px;transition:color var(--transition)}
+.s-actions span:hover{color:var(--sand)}
+.s-attach{
+  background:rgba(30,95,122,.15);border:0.5px solid rgba(30,95,122,.3);
+  border-radius:4px;padding:6px 10px;margin-bottom:10px;
+  font-size:clamp(9px,2.5vw,10px);color:var(--sea-light);
+  letter-spacing:1px;font-family:var(--ff-ui);text-transform:uppercase;
+}
+
+/* ===== TAG ROW ===== */
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:clamp(12px,3vw,16px)}
+.tag{
+  font-family:var(--ff-ui);font-size:9px;letter-spacing:1.5px;
+  text-transform:uppercase;padding:5px 11px;border-radius:2px;
+  border:0.5px solid rgba(196,154,90,.22);color:rgba(196,154,90,.45);
+  cursor:pointer;transition:all var(--transition);
+}
+.tag.on{background:var(--sand);color:var(--ink);border-color:var(--sand);font-weight:600}
+.tag:hover:not(.on){border-color:rgba(196,154,90,.45);color:rgba(196,154,90,.7)}
+
+/* ===== BUTTONS ===== */
+.btn-gold{
+  font-family:var(--ff-ui);font-size:10px;letter-spacing:2.5px;
+  text-transform:uppercase;padding:8px 16px;
+  background:var(--sand);color:var(--ink);
+  border:none;border-radius:3px;cursor:pointer;
+  font-weight:600;transition:background var(--transition);
+}
+.btn-gold:hover{background:var(--sand-light)}
+.btn-ghost{
+  font-family:var(--ff-ui);font-size:10px;letter-spacing:2px;
+  text-transform:uppercase;padding:7px 14px;
+  background:transparent;color:rgba(196,154,90,.5);
+  border:0.5px solid rgba(196,154,90,.22);border-radius:3px;
+  cursor:pointer;transition:all var(--transition);
+}
+.btn-ghost:hover{border-color:rgba(196,154,90,.45);color:var(--sand)}
+.row-between{display:flex;justify-content:space-between;align-items:center;margin-bottom:clamp(12px,3vw,18px)}
+
+/* ===== MAP ===== */
+#map{width:100%;height:clamp(300px,55vw,420px)}
+.leaflet-container{background:#060c14}
+.custom-popup .leaflet-popup-content-wrapper{
+  background:#1c1408;border:0.5px solid rgba(196,154,90,.3);
+  border-radius:6px;color:var(--cream);
+  font-family:var(--ff-body);font-size:14px;
+  box-shadow:0 6px 24px rgba(0,0,0,.6);
+}
+.custom-popup .leaflet-popup-tip{background:#1c1408}
+.custom-popup .leaflet-popup-content{margin:10px 14px}
+.pop-title{font-size:15px;color:var(--sand-light);margin-bottom:3px}
+.pop-gr{font-size:11px;color:var(--cream-faint);font-family:var(--ff-ui);letter-spacing:.5px}
+.pop-count{font-size:10px;color:var(--sea-light);margin-top:5px;font-family:var(--ff-ui);letter-spacing:.5px}
+.map-info{padding:clamp(12px,3vw,16px)}
+.route-item{
+  display:flex;align-items:center;gap:8px;
+  padding:clamp(8px,2.5vw,10px) clamp(10px,3vw,14px);
+  background:var(--card);border:0.5px solid var(--sand-border);
+  border-radius:var(--r-sm);margin-bottom:7px;
+  cursor:pointer;transition:border-color var(--transition);
+}
+.route-item:hover{border-color:rgba(196,154,90,.4)}
+.r-from{font-family:var(--ff-body);font-size:clamp(12px,3.5vw,14px);color:var(--sea-light)}
+.r-arrow{font-size:11px;color:rgba(196,154,90,.35)}
+.r-to{font-family:var(--ff-body);font-size:clamp(12px,3.5vw,14px);color:var(--green)}
+.r-cnt{margin-left:auto;font-size:clamp(9px,2.5vw,11px);color:rgba(196,154,90,.4);letter-spacing:.4px}
+.map-legend{display:flex;gap:clamp(10px,3vw,18px);flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:0.5px solid rgba(196,154,90,.1)}
+.leg{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--cream-faint);letter-spacing:.4px}
+.leg-dot{width:9px;height:9px;border-radius:50%}
+
+/* ===== MARKET ===== */
+.m-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(8px,2.5vw,12px)}
+.m-card{
+  background:var(--card);border:0.5px solid var(--sand-border);
+  border-radius:var(--r);overflow:hidden;
+  transition:border-color var(--transition);
+}
+.m-card:hover{border-color:rgba(196,154,90,.4)}
+.m-thumb{height:clamp(85px,22vw,110px);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.m-thumb svg{width:100%;height:100%}
+.m-body{padding:clamp(9px,2.5vw,12px)}
+.m-name{font-family:var(--ff-body);font-size:clamp(12px,3.2vw,14px);color:var(--cream);margin-bottom:2px;line-height:1.3}
+.m-seller{font-size:9px;color:rgba(196,154,90,.45);letter-spacing:.5px;margin-bottom:5px;font-family:var(--ff-ui)}
+.m-price{font-family:var(--ff-ui);font-size:clamp(13px,3.5vw,16px);font-weight:600;color:var(--sea-light)}
+.m-btn{
+  width:100%;margin-top:7px;padding:6px;
+  background:transparent;border:0.5px solid rgba(196,154,90,.2);
+  border-radius:3px;font-size:9px;letter-spacing:1.5px;
+  text-transform:uppercase;color:rgba(196,154,90,.45);
+  cursor:pointer;font-family:var(--ff-ui);transition:all var(--transition);
+}
+.m-btn:hover{background:var(--sand-pale);color:var(--sand);border-color:rgba(196,154,90,.4)}
+
+/* ===== EVENTS ===== */
+.ev-item{
+  display:flex;gap:clamp(10px,3vw,16px);
+  padding:clamp(12px,3vw,15px) 0;
+  border-bottom:0.5px solid rgba(196,154,90,.1);
+}
+.ev-item:last-child{border-bottom:none}
+.ev-date{text-align:center;min-width:clamp(36px,9vw,46px)}
+.ev-day{
+  font-family:var(--ff-display);
+  font-size:clamp(20px,5.5vw,26px);
+  color:var(--sea-light);line-height:1;
+}
+.ev-mon{
+  font-size:8px;text-transform:uppercase;letter-spacing:2px;
+  color:rgba(196,154,90,.45);font-family:var(--ff-ui);margin-top:1px;
+}
+.ev-title{
+  font-family:var(--ff-body);
+  font-size:clamp(13px,3.5vw,15px);
+  color:var(--cream);margin-bottom:3px;line-height:1.4;
+}
+.ev-org{font-size:clamp(9px,2.5vw,11px);color:rgba(196,154,90,.45);letter-spacing:.4px;margin-bottom:5px}
+.ev-tag{
+  display:inline-block;font-size:9px;letter-spacing:1.5px;
+  text-transform:uppercase;padding:2px 8px;border-radius:2px;
+  background:rgba(30,95,122,.2);color:var(--sea-light);
+  border:0.5px solid rgba(30,95,122,.35);font-family:var(--ff-ui);
+}
+
+/* ===== PROFILE ===== */
+.prof-hero{
+  position:relative;
+  height:clamp(190px,45vw,240px);
+  overflow:hidden;background:var(--ink);
+  display:flex;align-items:flex-end;
+  padding:clamp(16px,4vw,22px);
+}
+.prof-hero svg{position:absolute;inset:0;width:100%;height:100%}
+.prof-hero-fade{
+  position:absolute;inset:0;
+  background:linear-gradient(to bottom,rgba(10,6,4,.1),rgba(10,6,4,.85));
+}
+.prof-content{position:relative;z-index:2;width:100%}
+.prof-av{
+  width:clamp(56px,13vw,72px);height:clamp(56px,13vw,72px);
+  border-radius:50%;background:var(--sand);
+  border:2px solid rgba(228,200,122,.45);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--ff-ui);font-size:clamp(18px,5vw,24px);
+  font-weight:600;color:var(--ink);margin-bottom:10px;
+}
+.prof-name{font-family:var(--ff-display);font-size:clamp(17px,4.5vw,22px);color:var(--cream);font-weight:400}
+.prof-origin{font-family:var(--ff-body);font-style:italic;font-size:clamp(12px,3vw,14px);color:var(--sand);margin-top:2px}
+.prof-stats{display:flex;gap:clamp(18px,5vw,28px);margin-top:clamp(10px,2.5vw,14px)}
+.ps-n{font-family:var(--ff-ui);font-size:clamp(16px,4.5vw,20px);font-weight:600;color:white}
+.ps-l{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.35);font-family:var(--ff-ui);margin-top:1px}
+.info-block{
+  background:var(--card);border:0.5px solid var(--sand-border);
+  border-radius:var(--r);padding:clamp(12px,3.5vw,16px);
+  margin-bottom:clamp(10px,3vw,14px);
+}
+.info-row{display:flex;gap:10px;margin-bottom:7px;align-items:flex-start}
+.info-row:last-child{margin-bottom:0}
+.info-lbl{
+  font-family:var(--ff-ui);font-size:9px;letter-spacing:1.5px;
+  text-transform:uppercase;color:rgba(196,154,90,.4);
+  min-width:clamp(48px,12vw,62px);padding-top:3px;flex-shrink:0;
+}
+.info-val{font-family:var(--ff-body);font-size:clamp(14px,3.8vw,16px);color:var(--cream)}
+
+/* ===== ADMIN BANNER ===== */
+.a-banner{
+  background:rgba(30,95,122,.12);border-bottom:0.5px solid rgba(30,95,122,.25);
+  padding:5px 14px;display:flex;align-items:center;justify-content:space-between;
+}
+.a-banner span{font-size:10px;letter-spacing:1px;color:rgba(58,143,171,.7);font-family:var(--ff-ui)}
+.a-pill{
+  background:rgba(30,95,122,.25);color:var(--sea-light);
+  font-size:9px;padding:2px 9px;border-radius:8px;
+  letter-spacing:1px;border:0.5px solid rgba(30,95,122,.35);
+  font-family:var(--ff-ui);
+}
+
+/* ===== LOGIN ===== */
+.login-hero{
+  position:relative;
+  height:clamp(240px,52vw,300px);
+  overflow:hidden;background:var(--ink);
+  display:flex;align-items:flex-end;
+  padding:clamp(16px,4vw,26px);
+}
+.login-hero svg{position:absolute;inset:0;width:100%;height:100%}
+.login-hero-fade{
+  position:absolute;inset:0;
+  background:linear-gradient(to bottom,rgba(10,6,4,.05),rgba(10,6,4,.9));
+}
+.login-content{position:relative;z-index:2}
+.login-eye{
+  font-family:var(--ff-ui);font-size:9px;letter-spacing:4px;
+  text-transform:uppercase;color:var(--sand);opacity:.7;margin-bottom:8px;
+}
+.login-title{
+  font-family:var(--ff-display);
+  font-size:clamp(30px,8vw,42px);
+  font-weight:700;color:var(--cream);line-height:.95;
+}
+.login-title em{
+  display:block;font-style:italic;font-weight:400;
+  font-size:.62em;color:var(--sand-light);margin-top:5px;
+}
+.login-body{padding:clamp(22px,5vw,32px) clamp(18px,5vw,28px)}
+.f-lbl{
+  display:block;font-family:var(--ff-ui);font-size:9px;
+  letter-spacing:2.5px;text-transform:uppercase;
+  color:rgba(196,154,90,.45);margin-bottom:6px;
+}
+.f-inp{
+  width:100%;padding:clamp(10px,2.5vw,13px) 14px;margin-bottom:clamp(14px,3.5vw,18px);
+  background:#1c1408;border:0.5px solid rgba(196,154,90,.2);
+  border-radius:var(--r-sm);font-size:clamp(14px,3.5vw,16px);
+  font-family:var(--ff-body);color:var(--cream);
+  transition:border-color var(--transition);
+}
+.f-inp:focus{outline:none;border-color:rgba(196,154,90,.55)}
+.f-inp::placeholder{color:rgba(196,154,90,.22)}
+.btn-login{
+  width:100%;padding:clamp(12px,3vw,15px);
+  background:var(--sand);border:none;border-radius:var(--r-sm);
+  font-family:var(--ff-ui);font-size:12px;letter-spacing:3px;
+  text-transform:uppercase;color:var(--ink);
+  cursor:pointer;font-weight:600;transition:background var(--transition);
+}
+.btn-login:hover{background:var(--sand-light)}
+.btn-reg{
+  width:100%;padding:clamp(10px,2.5vw,13px);
+  background:transparent;border:0.5px solid rgba(196,154,90,.2);
+  border-radius:var(--r-sm);font-family:var(--ff-ui);
+  font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  color:rgba(196,154,90,.45);cursor:pointer;margin-top:10px;
+  transition:all var(--transition);
+}
+.btn-reg:hover{border-color:rgba(196,154,90,.45);color:var(--sand)}
+.login-div{text-align:center;font-size:11px;color:rgba(196,154,90,.25);margin:clamp(12px,3vw,16px) 0;letter-spacing:1px}
+.admin-link{text-align:center;margin-top:clamp(14px,3.5vw,18px);font-size:11px;color:rgba(196,154,90,.3);letter-spacing:.5px}
+.admin-link a{color:var(--sea-light);cursor:pointer;text-decoration:underline;transition:color var(--transition)}
+.admin-link a:hover{color:var(--sand-light)}
+
+/* ===== ADMIN PAGE ===== */
+.admin-hdr{
+  background:rgba(30,95,122,.12);padding:clamp(16px,4vw,22px);
+  border-bottom:0.5px solid rgba(30,95,122,.25);
+}
+.admin-hdr h1{font-family:var(--ff-display);font-size:clamp(20px,5.5vw,26px);color:var(--cream);font-weight:400}
+.admin-hdr p{font-size:10px;color:rgba(196,154,90,.4);margin-top:4px;letter-spacing:1px}
+.stat-g{display:grid;grid-template-columns:1fr 1fr;gap:clamp(7px,2vw,10px);margin-bottom:clamp(14px,4vw,20px)}
+.sc{border-radius:var(--r);padding:clamp(11px,3vw,15px);border:0.5px solid}
+.sc.b{background:rgba(30,95,122,.1);border-color:rgba(30,95,122,.3)}
+.sc.a{background:rgba(196,154,90,.07);border-color:rgba(196,154,90,.2)}
+.sc-n{font-family:var(--ff-ui);font-size:clamp(22px,6vw,28px);font-weight:300}
+.sc.b .sc-n{color:var(--sea-light)}
+.sc.a .sc-n{color:var(--sand)}
+.sc-l{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:rgba(245,237,224,.35);margin-top:3px}
+.a-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:clamp(10px,2.5vw,13px) clamp(12px,3vw,16px);
+  background:var(--card);border:0.5px solid var(--sand-border);
+  border-radius:var(--r-sm);margin-bottom:7px;cursor:pointer;
+  transition:border-color var(--transition);
+}
+.a-row:hover{border-color:rgba(196,154,90,.35)}
+.a-lbl{font-family:var(--ff-body);font-size:clamp(13px,3.5vw,15px);color:var(--cream)}
+.a-val{font-size:11px;color:var(--sea-light);letter-spacing:.5px}
+.a-num{font-size:10px;padding:3px 9px;background:rgba(30,95,122,.22);color:var(--sea-light);border-radius:10px;border:0.5px solid rgba(30,95,122,.35)}
+.btn-back{
+  width:100%;padding:12px;margin-top:10px;
+  background:transparent;border:0.5px solid rgba(196,154,90,.2);
+  border-radius:var(--r-sm);font-size:10px;letter-spacing:2.5px;
+  text-transform:uppercase;color:rgba(196,154,90,.45);
+  cursor:pointer;font-family:var(--ff-ui);transition:all var(--transition);
+}
+.btn-back:hover{background:var(--sand-pale);color:var(--sand);border-color:rgba(196,154,90,.4)}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.pane.on .s-card,.pane.on .tile,.pane.on .m-card,.pane.on .ev-item,.pane.on .route-item{animation:fadeUp .32s ease both}
+.pane.on .tile:nth-child(2){animation-delay:.05s}
+.pane.on .tile:nth-child(3){animation-delay:.1s}
+.pane.on .tile:nth-child(4){animation-delay:.15s}
+.pane.on .s-card:nth-child(2){animation-delay:.07s}
+.pane.on .s-card:nth-child(3){animation-delay:.14s}
+.pane.on .m-card:nth-child(2){animation-delay:.06s}
+.pane.on .m-card:nth-child(3){animation-delay:.12s}
+.pane.on .m-card:nth-child(4){animation-delay:.18s}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(196,154,90,.2);border-radius:4px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ===================== LOGIN ===================== -->
+<div id="pg-login" class="pg on">
+  <div class="lang-bar">
+    <button class="lb on" onclick="setLang('tr')">TR</button>
+    <button class="lb" onclick="setLang('el')">ΕΛ</button>
+    <button class="lb" onclick="setLang('en')">EN</button>
+  </div>
+  <div class="login-hero">
+    <svg viewBox="0 0 480 300" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+      <rect width="480" height="300" fill="#050302"/>
+      <ellipse cx="240" cy="360" rx="380" ry="250" fill="#1a3a52" opacity="0.5"/>
+      <path d="M0 180 Q70 135 140 168 Q210 200 280 158 Q350 116 480 150 L480 300 L0 300Z" fill="#0a1505" opacity="0.85"/>
+      <path d="M0 210 Q100 178 200 200 Q300 222 480 185 L480 300 L0 300Z" fill="#060c03" opacity="0.65"/>
+      <!-- Sandık -->
+      <rect x="32" y="105" width="78" height="56" rx="4" fill="#3d2010" opacity="0.75"/>
+      <rect x="39" y="90" width="64" height="17" rx="3" fill="#3d2010" opacity="0.6"/>
+      <rect x="48" y="82" width="14" height="10" rx="2" fill="#c49a5a" opacity="0.65"/>
+      <rect x="65" y="82" width="14" height="10" rx="2" fill="#c49a5a" opacity="0.65"/>
+      <rect x="32" y="153" width="78" height="3" fill="#c49a5a" opacity="0.3"/>
+      <circle cx="71" cy="155" r="5.5" fill="#c49a5a" opacity="0.45"/>
+      <rect x="38" y="164" width="66" height="48" rx="3" fill="#2d1a08" opacity="0.55"/>
+      <!-- Gülcemal -->
+      <rect x="168" y="85" width="160" height="94" rx="7" fill="#0c2535" opacity="0.8"/>
+      <rect x="186" y="70" width="124" height="18" rx="4" fill="#0c2535" opacity="0.65"/>
+      <rect x="215" y="48" width="26" height="26" rx="3" fill="#1e4a62" opacity="0.7"/>
+      <rect x="252" y="54" width="20" height="20" rx="3" fill="#1e4a62" opacity="0.6"/>
+      <rect x="280" y="60" width="16" height="14" rx="2" fill="#1e4a62" opacity="0.5"/>
+      <path d="M150 190 Q248 170 346 190" stroke="#3a8fab" stroke-width="2" fill="none" opacity="0.5"/>
+      <path d="M135 204 Q248 186 361 204" stroke="#1e5f7a" stroke-width="1.2" fill="none" opacity="0.35"/>
+      <!-- Kağnı -->
+      <ellipse cx="400" cy="195" rx="17" ry="17" fill="none" stroke="#c49a5a" stroke-width="2.5" opacity="0.5"/>
+      <ellipse cx="436" cy="195" rx="17" ry="17" fill="none" stroke="#c49a5a" stroke-width="2.5" opacity="0.5"/>
+      <rect x="397" y="170" width="56" height="28" rx="4" fill="#4a2e18" opacity="0.6"/>
+      <line x1="372" y1="195" x2="398" y2="195" stroke="#4a2e18" stroke-width="3" opacity="0.5"/>
+      <!-- Göç çizgisi -->
+      <line x1="110" y1="200" x2="168" y2="185" stroke="#c49a5a" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.4"/>
+      <line x1="346" y1="190" x2="382" y2="193" stroke="#c49a5a" stroke-width="1" stroke-dasharray="4,3" opacity="0.35"/>
+    </svg>
+    <div class="login-hero-fade"></div>
+    <div class="login-content">
+      <div class="login-eye" data-i18n="eyebrow">1923 — Lozan Mübadelesi</div>
+      <div class="login-title">Mübadele<em>Ανταλλαγή · Exchange</em></div>
+    </div>
+  </div>
+  <div class="login-body">
+    <label class="f-lbl" data-i18n="email_label">E-posta</label>
+    <input class="f-inp" type="email" placeholder="ad@eposta.com" data-i18n-ph="email_ph">
+    <label class="f-lbl" data-i18n="pass_label">Şifre</label>
+    <input class="f-inp" type="password" placeholder="••••••••">
+    <button class="btn-login" onclick="goHome()" data-i18n="login_btn">Giriş Yap</button>
+    <div class="login-div" data-i18n="or">veya</div>
+    <button class="btn-reg" onclick="goHome()" data-i18n="register_btn">Üye Ol — Kayıt</button>
+    <div class="admin-link">
+      <span data-i18n="admin_text">Yönetici girişi: </span>
+      <a onclick="goAdmin()" data-i18n="admin_link">Admin Paneli →</a>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== HOME ===================== -->
+<div id="pg-home" class="pg">
+  <div class="lang-bar">
+    <button class="lb on" onclick="setLang('tr')">TR</button>
+    <button class="lb" onclick="setLang('el')">ΕΛ</button>
+    <button class="lb" onclick="setLang('en')">EN</button>
+  </div>
+
+  <div class="hero">
+    <svg class="hero-svg" viewBox="0 0 480 420" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <radialGradient id="hg" cx="50%" cy="55%" r="75%">
+          <stop offset="0%" stop-color="#1e4a62" stop-opacity="0.65"/>
+          <stop offset="100%" stop-color="#050302" stop-opacity="1"/>
+        </radialGradient>
+      </defs>
+      <rect width="480" height="420" fill="#050302"/>
+      <rect width="480" height="420" fill="url(#hg)"/>
+      <path d="M0 240 Q70 195 140 228 Q210 262 280 215 Q350 168 480 200 L480 420 L0 420Z" fill="#0a1a05" opacity="0.9"/>
+      <path d="M0 275 Q110 240 220 264 Q330 288 480 255 L480 420 L0 420Z" fill="#060e03" opacity="0.7"/>
+      <!-- Sandıklar sol -->
+      <rect x="20" y="158" width="80" height="58" rx="4" fill="#3d2010" opacity="0.72"/>
+      <rect x="27" y="142" width="66" height="18" rx="3" fill="#3d2010" opacity="0.58"/>
+      <rect x="36" y="134" width="15" height="10" rx="2" fill="#c49a5a" opacity="0.68"/>
+      <rect x="54" y="134" width="15" height="10" rx="2" fill="#c49a5a" opacity="0.68"/>
+      <rect x="20" y="207" width="80" height="3" fill="#c49a5a" opacity="0.32"/>
+      <circle cx="60" cy="210" r="6" fill="#c49a5a" opacity="0.48"/>
+      <rect x="26" y="218" width="68" height="46" rx="3" fill="#2d1a08" opacity="0.55"/>
+      <rect x="30" y="260" width="60" height="2" fill="#c49a5a" opacity="0.18"/>
+      <!-- Gülcemal büyük -->
+      <rect x="152" y="118" width="178" height="105" rx="8" fill="#0c2535" opacity="0.78"/>
+      <rect x="170" y="100" width="142" height="22" rx="5" fill="#0c2535" opacity="0.62"/>
+      <rect x="202" y="70" width="28" height="32" rx="3" fill="#1e4a62" opacity="0.7"/>
+      <rect x="242" y="76" width="22" height="26" rx="3" fill="#1e4a62" opacity="0.6"/>
+      <rect x="272" y="82" width="18" height="20" rx="2" fill="#1e4a62" opacity="0.5"/>
+      <ellipse cx="241" cy="112" rx="80" ry="6" fill="#1e4a62" opacity="0.35"/>
+      <rect x="152" y="218" width="178" height="14" rx="3" fill="#0c2535" opacity="0.42"/>
+      <path d="M134" 240 Q241 218 348 240" stroke="#3a8fab" stroke-width="2.2" fill="none" opacity="0.52"/>
+      <path d="M115 257 Q241 237 367 257" stroke="#1e5f7a" stroke-width="1.3" fill="none" opacity="0.35"/>
+      <path d="M95 272 Q241 255 387 272" stroke="#163040" stroke-width="1" fill="none" opacity="0.25"/>
+      <!-- Kağnı sağ -->
+      <ellipse cx="375" cy="220" rx="18" ry="18" fill="none" stroke="#c49a5a" stroke-width="2.8" opacity="0.52"/>
+      <ellipse cx="414" cy="220" rx="18" ry="18" fill="none" stroke="#c49a5a" stroke-width="2.8" opacity="0.52"/>
+      <rect x="372" y="194" width="58" height="30" rx="4" fill="#4a2e18" opacity="0.6"/>
+      <line x1="344" y1="220" x2="374" y2="220" stroke="#4a2e18" stroke-width="3.2" opacity="0.48"/>
+      <!-- Yolcular silüet -->
+      <ellipse cx="175" cy="240" rx="6" ry="12" fill="#1a0f08" opacity="0.6"/>
+      <circle cx="175" cy="226" r="5" fill="#1a0f08" opacity="0.6"/>
+      <ellipse cx="195" cy="238" rx="5" ry="11" fill="#1a0f08" opacity="0.5"/>
+      <circle cx="195" cy="225" r="4.5" fill="#1a0f08" opacity="0.5"/>
+      <ellipse cx="310" cy="236" rx="6" ry="12" fill="#1a0f08" opacity="0.55"/>
+      <circle cx="310" cy="222" r="5" fill="#1a0f08" opacity="0.55"/>
+      <!-- Göç rotası -->
+      <line x1="100" y1="254" x2="152" y2="240" stroke="#c49a5a" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.42"/>
+      <line x1="330" y1="230" x2="356" y2="220" stroke="#c49a5a" stroke-width="1" stroke-dasharray="4,3" opacity="0.38"/>
+    </svg>
+    <div class="hero-vignette"></div>
+    <div class="hero-fade"></div>
+    <div class="hero-content">
+      <div class="hero-eyebrow" data-i18n="eyebrow">1923 — Lozan Mübadelesi</div>
+      <div class="hero-title">Mübadele<em data-i18n="hero_em">Ανταλλαγή · Exchange</em></div>
+      <div class="hero-sub" data-i18n="hero_sub">İki halkın ortak hafızası</div>
+    </div>
+  </div>
+
+  <div class="a-banner">
+    <span data-i18n="admin_active">Admin Paneli aktif</span>
+    <span class="a-pill" data-i18n="admin_role">Yönetici</span>
+  </div>
+
+  <nav class="nav">
+    <button class="ni on" onclick="sw(this,'p-home')" data-i18n="nav_home">Ana Sayfa</button>
+    <button class="ni" onclick="sw(this,'p-stories')" data-i18n="nav_stories">Hikayeler</button>
+    <button class="ni" onclick="sw(this,'p-map')" data-i18n="nav_map">Harita</button>
+    <button class="ni" onclick="sw(this,'p-market')" data-i18n="nav_market">Pazar</button>
+    <button class="ni" onclick="sw(this,'p-events')" data-i18n="nav_events">Etkinlik</button>
+    <button class="ni" onclick="sw(this,'p-profile')" data-i18n="nav_profile">Profil</button>
+  </nav>
+
+  <!-- HOME PANE -->
+  <div id="p-home" class="pane on pad">
+    <div class="eye" data-i18n="quick_access">Hızlı Erişim</div>
+    <div class="tile-grid">
+      <div class="tile" onclick="swN('p-stories')"><div class="tile-icon">📖</div><div class="tile-name" data-i18n="tile_stories">Aile Hikayeleri</div><div class="tile-count">1.240</div></div>
+      <div class="tile" onclick="swN('p-map')"><div class="tile-icon">🗺️</div><div class="tile-name" data-i18n="tile_map">Harita</div><div class="tile-count" data-i18n="tile_map_sub">Balkanlar & Türkiye</div></div>
+      <div class="tile" onclick="swN('p-market')"><div class="tile-icon">🛒</div><div class="tile-name" data-i18n="tile_market">Pazar Yeri</div><div class="tile-count" data-i18n="tile_market_sub">Antika & Hatıra</div></div>
+      <div class="tile" onclick="swN('p-events')"><div class="tile-icon">📰</div><div class="tile-name" data-i18n="tile_events">Etkinlik & Haber</div><div class="tile-count" data-i18n="tile_events_sub">12 dernek</div></div>
+    </div>
+    <div class="eye" data-i18n="recent">Son Paylaşılanlar</div>
+    <div class="s-card">
+      <div class="s-user">
+        <div class="av" style="background:#1e3a50;color:#3a8fab">MA</div>
+        <div><div class="s-name">Mehmet Aydın</div><div class="s-origin">Selanik → İzmir</div></div>
+        <span class="s-badge">TR</span>
+      </div>
+      <div class="s-text">"Büyükannem 1923'te Selanik'ten gelirken sandığında sadece eski fotoğraflar ve gümüş bir çatal kaşık takımı varmış..."</div>
+      <div class="s-actions"><span>♡ 48</span><span>💬 12</span><span>↗</span></div>
+    </div>
+    <div class="s-card">
+      <div class="s-user">
+        <div class="av" style="background:#2a1a08;color:#c49a5a">EP</div>
+        <div><div class="s-name">Eleni Papadopoulou</div><div class="s-origin">Kavala ← Serez</div></div>
+        <span class="s-badge">GR</span>
+      </div>
+      <div class="s-text">"Ο παππούς μου έφερε μαζί του μια φωτογραφία από την παλιά γειτονιά στο Σέρρες..."</div>
+      <div class="s-actions"><span>♡ 63</span><span>💬 9</span><span>↗</span></div>
+    </div>
+  </div>
+
+  <!-- STORIES PANE -->
+  <div id="p-stories" class="pane pad">
+    <div class="row-between">
+      <div class="page-title" data-i18n="nav_stories">Hikayeler</div>
+      <button class="btn-gold" data-i18n="share_btn">+ Paylaş</button>
+    </div>
+    <div class="tags">
+      <span class="tag on" data-i18n="all">Tümü</span>
+      <span class="tag">TR</span>
+      <span class="tag">ΕΛ</span>
+      <span class="tag">EN</span>
+      <span class="tag" data-i18n="tag_photo">Fotoğraflı</span>
+    </div>
+    <div class="s-card">
+      <div class="s-user">
+        <div class="av" style="background:#1e3a50;color:#3a8fab">MA</div>
+        <div><div class="s-name">Mehmet Aydın</div><div class="s-origin">Selanik → İzmir · 2 gün önce</div></div>
+        <span class="s-badge">TR</span>
+      </div>
+      <div class="s-text">"Büyükannem sandığında sakladığı o fotoğrafı bize gösterirken hep ağlardı. Gülcemal vapurunda çekilmiş, 1923..."</div>
+      <div class="s-attach">📷 2 FOTOĞRAF · 1 BELGE</div>
+      <div class="s-actions"><span>♡ 48</span><span>💬 12</span><span>↗</span></div>
+    </div>
+    <div class="s-card">
+      <div class="s-user">
+        <div class="av" style="background:#2a1a08;color:#c49a5a">EP</div>
+        <div><div class="s-name">Eleni Papadopoulou</div><div class="s-origin">Kavala ← Serez · 3 gün önce</div></div>
+        <span class="s-badge">GR</span>
+      </div>
+      <div class="s-text">"Ο παππούς μου έφερε μόνο μια φωτογραφία. Κάθε Πρωτοχρονιά την έβαζε στο τραπέζι..."</div>
+      <div class="s-actions"><span>♡ 63</span><span>💬 9</span><span>↗</span></div>
+    </div>
+    <div class="s-card">
+      <div class="s-user">
+        <div class="av" style="background:#0a2010;color:#4db87a">NM</div>
+        <div><div class="s-name">Nikos Mavridis</div><div class="s-origin">Bursa ← Florina · 5 gün önce</div></div>
+        <span class="s-badge">EN</span>
+      </div>
+      <div class="s-text">"My grandfather walked from Florina to the port of Kavala with nothing but a small wooden chest. He never spoke of what he left behind..."</div>
+      <div class="s-actions"><span>♡ 91</span><span>💬 24</span><span>↗</span></div>
+    </div>
+  </div>
+
+  <!-- MAP PANE -->
+  <div id="p-map" class="pane">
+    <div id="map"></div>
+    <div class="map-info">
+      <div class="eye" data-i18n="key_routes">Öne Çıkan Rotalar</div>
+      <div class="route-item" onclick="flyTo(40.64,22.94,9)"><span class="r-from">Selanik</span><span class="r-arrow">→</span><span class="r-to">İzmir</span><span class="r-cnt">342 hikaye</span></div>
+      <div class="route-item" onclick="flyTo(40.93,24.41,9)"><span class="r-from">Kavala</span><span class="r-arrow">→</span><span class="r-to">Bursa</span><span class="r-cnt">189 hikaye</span></div>
+      <div class="route-item" onclick="flyTo(41.09,23.55,9)"><span class="r-from">Serez</span><span class="r-arrow">→</span><span class="r-to">Balıkesir</span><span class="r-cnt">97 hikaye</span></div>
+      <div class="route-item" onclick="flyTo(40.85,25.87,9)"><span class="r-from">Dedeağaç</span><span class="r-arrow">→</span><span class="r-to">İzmir</span><span class="r-cnt">74 hikaye</span></div>
+      <div class="map-legend">
+        <div class="leg"><div class="leg-dot" style="background:#E24B4A"></div><span data-i18n="leg_gr">Yunanistan</span></div>
+        <div class="leg"><div class="leg-dot" style="background:#1D9E75"></div><span data-i18n="leg_tr">Türkiye</span></div>
+        <div class="leg" style="gap:8px"><div style="width:18px;height:0;border-top:1.5px dashed rgba(196,154,90,.6)"></div><span data-i18n="leg_route">Göç rotaları</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARKET PANE -->
+  <div id="p-market" class="pane pad">
+    <div class="row-between">
+      <div class="page-title" data-i18n="nav_market">Pazar Yeri</div>
+      <button class="btn-gold" data-i18n="sell_btn">+ Sat</button>
+    </div>
+    <div class="tags">
+      <span class="tag on" data-i18n="all">Tümü</span>
+      <span class="tag" data-i18n="cat_antique">Antika</span>
+      <span class="tag" data-i18n="cat_book">Kitap</span>
+      <span class="tag" data-i18n="cat_photo">Fotoğraf</span>
+      <span class="tag" data-i18n="cat_craft">El işi</span>
+    </div>
+    <div class="m-grid">
+      <div class="m-card">
+        <div class="m-thumb" style="background:#120a04">
+          <svg viewBox="0 0 160 110"><rect width="160" height="110" fill="#120a04"/><rect x="25" y="18" width="110" height="72" rx="5" fill="#3d2010" stroke="#c49a5a" stroke-width="1.2"/><rect x="32" y="25" width="96" height="58" rx="3" fill="#2a1508"/><circle cx="80" cy="55" r="9" fill="#c49a5a" opacity="0.5"/><rect x="65" y="51" width="30" height="3.5" rx="1.5" fill="#e8c87a" opacity="0.5"/><rect x="68" y="58" width="22" height="2.5" rx="1" fill="#e8c87a" opacity="0.35"/><rect x="25" y="82" width="110" height="2.5" fill="#c49a5a" opacity="0.25"/></svg>
+        </div>
+        <div class="m-body">
+          <div class="m-name" data-i18n="item1_name">Osmanlı sandık kilidi</div>
+          <div class="m-seller">Fatma H. · İzmir</div>
+          <div class="m-price">₺ 1.200</div>
+          <button class="m-btn" data-i18n="buy_btn">İncele</button>
+        </div>
+      </div>
+      <div class="m-card">
+        <div class="m-thumb" style="background:#060d14">
+          <svg viewBox="0 0 160 110"><rect width="160" height="110" fill="#060d14"/><rect x="28" y="14" width="104" height="82" rx="3" fill="white" opacity="0.06" stroke="#3a8fab" stroke-width="0.8"/><rect x="35" y="20" width="90" height="52" rx="2" fill="#0d2535" opacity="0.9"/><ellipse cx="80" cy="46" rx="28" ry="20" fill="#1e4a62" opacity="0.5"/><path d="M52 58 Q80 42 108 58" stroke="#3a8fab" stroke-width="1.5" fill="none" opacity="0.6"/><text x="36" y="90" font-size="8" fill="rgba(58,143,171,0.6)" font-family="Montserrat,sans-serif" letter-spacing="1.5">1923 · GÜLCEMAL</text></svg>
+        </div>
+        <div class="m-body">
+          <div class="m-name" data-i18n="item2_name">1923 dönemi fotoğraf</div>
+          <div class="m-seller">Nikos D. · Atina</div>
+          <div class="m-price">€ 85</div>
+          <button class="m-btn" data-i18n="buy_btn">İncele</button>
+        </div>
+      </div>
+      <div class="m-card">
+        <div class="m-thumb" style="background:#100c04">
+          <svg viewBox="0 0 160 110"><rect width="160" height="110" fill="#100c04"/><rect x="18" y="20" width="124" height="72" rx="4" fill="#3d2c10" stroke="#c49a5a" stroke-width="1"/><rect x="24" y="26" width="112" height="60" rx="2" fill="#2a1e08"/><text x="36" y="56" font-size="11" fill="rgba(196,154,90,0.7)" font-family="Cormorant Garamond,serif" font-style="italic">Mübadele</text><text x="40" y="70" font-size="9" fill="rgba(196,154,90,0.5)" font-family="Cormorant Garamond,serif">Hatıraları · 1923</text></svg>
+        </div>
+        <div class="m-body">
+          <div class="m-name" data-i18n="item3_name">El yazması dua kitabı</div>
+          <div class="m-seller">Maria S. · Selanik</div>
+          <div class="m-price">€ 220</div>
+          <button class="m-btn" data-i18n="buy_btn">İncele</button>
+        </div>
+      </div>
+      <div class="m-card">
+        <div class="m-thumb" style="background:#040810">
+          <svg viewBox="0 0 160 110"><rect width="160" height="110" fill="#030810"/><path d="M15 90 Q80 25 145 90" stroke="#3a8fab" stroke-width="2.5" fill="none" opacity="0.7"/><ellipse cx="80" cy="78" rx="40" ry="14" fill="#0c2535" opacity="0.7"/><path d="M40 78 Q80 56 120 78 L120 93 Q80 86 40 93Z" fill="#1e4a62" opacity="0.7"/><rect x="73" y="38" width="14" height="36" fill="#c49a5a" opacity="0.65"/><path d="M73 38 L80 22 L87 38Z" fill="#8b1a1a" opacity="0.8"/></svg>
+        </div>
+        <div class="m-body">
+          <div class="m-name" data-i18n="item4_name">Gülcemal maketi</div>
+          <div class="m-seller">Ahmet K. · Bursa</div>
+          <div class="m-price">₺ 3.500</div>
+          <button class="m-btn" data-i18n="buy_btn">İncele</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVENTS PANE -->
+  <div id="p-events" class="pane pad">
+    <div class="row-between">
+      <div class="page-title" data-i18n="nav_events">Etkinlik & Haberler</div>
+      <button class="btn-ghost" data-i18n="add_event">+ Ekle</button>
+    </div>
+    <div class="tags">
+      <span class="tag on" data-i18n="all">Tümü</span>
+      <span class="tag" data-i18n="ev_assoc">Dernek</span>
+      <span class="tag" data-i18n="ev_ngo">STK</span>
+      <span class="tag" data-i18n="ev_event">Etkinlik</span>
+      <span class="tag" data-i18n="ev_news">Haber</span>
+    </div>
+    <div class="ev-item">
+      <div class="ev-date"><div class="ev-day">24</div><div class="ev-mon" data-i18n="jan">Oca</div></div>
+      <div><div class="ev-title" data-i18n="ev1_title">Lozan Mübadelesi 101. Yıl Anma Töreni</div><div class="ev-org">Mübadele Derneği · İzmir</div><span class="ev-tag" data-i18n="ev_tag_event">Etkinlik</span></div>
+    </div>
+    <div class="ev-item">
+      <div class="ev-date"><div class="ev-day">18</div><div class="ev-mon" data-i18n="mar">Mar</div></div>
+      <div><div class="ev-title">Ανταλλαγή — Selanik sergi açılışı</div><div class="ev-org">Makedonia Vakfı · Selanik</div><span class="ev-tag" data-i18n="ev_tag_exhibit">Sergi</span></div>
+    </div>
+    <div class="ev-item">
+      <div class="ev-date"><div class="ev-day">05</div><div class="ev-mon" data-i18n="apr">Nis</div></div>
+      <div><div class="ev-title" data-i18n="ev3_title">Mübadil Torunları Buluşması</div><div class="ev-org">MTTB · Bursa</div><span class="ev-tag" data-i18n="ev_tag_meet">Buluşma</span></div>
+    </div>
+    <div class="ev-item">
+      <div class="ev-date"><div class="ev-day">12</div><div class="ev-mon" data-i18n="may">May</div></div>
+      <div><div class="ev-title" data-i18n="ev4_title">Gülcemal Vapuru Belgeseli Gösterimi</div><div class="ev-org">İzmir Büyükşehir Belediyesi</div><span class="ev-tag" data-i18n="ev_tag_cinema">Sinema</span></div>
+    </div>
+  </div>
+
+  <!-- PROFILE PANE -->
+  <div id="p-profile" class="pane">
+    <div class="prof-hero">
+      <svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+        <rect width="480" height="240" fill="#050302"/>
+        <ellipse cx="240" cy="300" rx="380" ry="240" fill="#1e3a50" opacity="0.45"/>
+        <path d="M0 145 Q110 105 220 132 Q330 158 480 118 L480 240 L0 240Z" fill="#0a1505" opacity="0.75"/>
+      </svg>
+      <div class="prof-hero-fade"></div>
+      <div class="prof-content">
+        <div class="prof-av">AK</div>
+        <div class="prof-name">Ahmet Karaoğlu</div>
+        <div class="prof-origin" data-i18n="prof_origin_ex">Selanik kökeni · İzmir</div>
+        <div class="prof-stats">
+          <div><div class="ps-n">12</div><div class="ps-l" data-i18n="stat_stories">Hikaye</div></div>
+          <div><div class="ps-n">48</div><div class="ps-l" data-i18n="stat_likes">Beğeni</div></div>
+          <div><div class="ps-n">3</div><div class="ps-l" data-i18n="stat_conn">Bağlantı</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="pad">
+      <div class="eye" style="margin-bottom:10px" data-i18n="origin_section">Köken Bilgisi</div>
+      <div class="info-block">
+        <div class="info-row"><span class="info-lbl" data-i18n="from_lbl">Gelen</span><span class="info-val">Selanik, Yunanistan</span></div>
+        <div class="info-row"><span class="info-lbl" data-i18n="to_lbl">Giden</span><span class="info-val">İzmir, Türkiye</span></div>
+        <div class="info-row"><span class="info-lbl" data-i18n="gen_lbl">Nesil</span><span class="info-val" data-i18n="gen_val">3. nesil torun</span></div>
+      </div>
+      <div class="eye" style="margin-bottom:10px" data-i18n="my_stories">Paylaştıklarım</div>
+      <div class="s-card">
+        <div class="s-text" style="font-size:14px">"Büyükannem sandığında sakladığı fotoğrafı..."</div>
+        <div class="s-actions"><span>♡ 48</span><span>💬 12</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ADMIN ===================== -->
+<div id="pg-admin" class="pg">
+  <div class="lang-bar">
+    <button class="lb on" onclick="setLang('tr')">TR</button>
+    <button class="lb" onclick="setLang('el')">ΕΛ</button>
+    <button class="lb" onclick="setLang('en')">EN</button>
+  </div>
+  <div class="admin-hdr">
+    <h1 data-i18n="admin_title">Admin Dashboard</h1>
+    <p data-i18n="admin_sub">İçerik yönetimi & istatistikler</p>
+  </div>
+  <div class="pad">
+    <div class="stat-g">
+      <div class="sc b"><div class="sc-n">1.240</div><div class="sc-l" data-i18n="total_stories">Toplam Hikaye</div></div>
+      <div class="sc a"><div class="sc-n">384</div><div class="sc-l" data-i18n="total_members">Kayıtlı Üye</div></div>
+      <div class="sc b"><div class="sc-n">47</div><div class="sc-l" data-i18n="market_items">Pazar İlanı</div></div>
+      <div class="sc a"><div class="sc-n">12</div><div class="sc-l" data-i18n="total_events">Etkinlik</div></div>
+    </div>
+    <div class="eye" style="margin-bottom:10px" data-i18n="content_mgmt">İçerik Yönetimi</div>
+    <div class="a-row"><span class="a-lbl" data-i18n="pending_stories">Onay bekleyen hikayeler</span><span class="a-num">8</span></div>
+    <div class="a-row"><span class="a-lbl" data-i18n="add_event_admin">Yeni etkinlik / haber ekle</span><span class="a-val" data-i18n="add">+ Ekle</span></div>
+    <div class="a-row"><span class="a-lbl" data-i18n="market_approval">Pazar ilanı onayı</span><span class="a-val" data-i18n="waiting">3 bekliyor</span></div>
+    <div class="a-row"><span class="a-lbl" data-i18n="user_mgmt">Kullanıcı yönetimi</span><span class="a-val" data-i18n="view">Görüntüle</span></div>
+    <button class="btn-back" onclick="goHome()" data-i18n="back_site">← Siteye Dön</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ===== i18n =====
+const T={
+  tr:{eyebrow:"1923 — Lozan Mübadelesi",hero_em:"Ανταλλαγή · Exchange",hero_sub:"İki halkın ortak hafızası",email_label:"E-posta",email_ph:"ad@eposta.com",pass_label:"Şifre",login_btn:"Giriş Yap",or:"veya",register_btn:"Üye Ol — Kayıt",admin_text:"Yönetici girişi:",admin_link:"Admin Paneli →",admin_active:"Admin Paneli aktif",admin_role:"Yönetici",nav_home:"Ana Sayfa",nav_stories:"Hikayeler",nav_map:"Harita",nav_market:"Pazar",nav_events:"Etkinlik",nav_profile:"Profil",quick_access:"Hızlı Erişim",tile_stories:"Aile Hikayeleri",tile_map:"Harita",tile_map_sub:"Balkanlar & Türkiye",tile_market:"Pazar Yeri",tile_market_sub:"Antika & Hatıra",tile_events:"Etkinlik & Haber",tile_events_sub:"12 dernek",recent:"Son Paylaşılanlar",share_btn:"+ Paylaş",all:"Tümü",tag_photo:"Fotoğraflı",key_routes:"Öne Çıkan Rotalar",leg_gr:"Yunanistan",leg_tr:"Türkiye",leg_route:"Göç rotaları",sell_btn:"+ Sat",cat_antique:"Antika",cat_book:"Kitap",cat_photo:"Fotoğraf",cat_craft:"El işi",item1_name:"Osmanlı sandık kilidi",item2_name:"1923 dönemi fotoğraf",item3_name:"El yazması dua kitabı",item4_name:"Gülcemal maketi",buy_btn:"İncele",add_event:"+ Ekle",ev_assoc:"Dernek",ev_ngo:"STK",ev_event:"Etkinlik",ev_news:"Haber",jan:"Oca",mar:"Mar",apr:"Nis",may:"May",ev1_title:"Lozan Mübadelesi 101. Yıl Anma Töreni",ev3_title:"Mübadil Torunları Buluşması",ev4_title:"Gülcemal Vapuru Belgeseli Gösterimi",ev_tag_event:"Etkinlik",ev_tag_exhibit:"Sergi",ev_tag_meet:"Buluşma",ev_tag_cinema:"Sinema",prof_origin_ex:"Selanik kökeni · İzmir",stat_stories:"Hikaye",stat_likes:"Beğeni",stat_conn:"Bağlantı",origin_section:"Köken Bilgisi",from_lbl:"Gelen",to_lbl:"Giden",gen_lbl:"Nesil",gen_val:"3. nesil torun",my_stories:"Paylaştıklarım",admin_title:"Admin Dashboard",admin_sub:"İçerik yönetimi & istatistikler",total_stories:"Toplam Hikaye",total_members:"Kayıtlı Üye",market_items:"Pazar İlanı",total_events:"Etkinlik",content_mgmt:"İçerik Yönetimi",pending_stories:"Onay bekleyen hikayeler",add_event_admin:"Yeni etkinlik / haber ekle",market_approval:"Pazar ilanı onayı",user_mgmt:"Kullanıcı yönetimi",add:"+ Ekle",waiting:"3 bekliyor",view:"Görüntüle",back_site:"← Siteye Dön"},
+  el:{eyebrow:"1923 — Συνθήκη Λοζάνης",hero_em:"Mübadele · Exchange",hero_sub:"Η κοινή μνήμη δύο λαών",email_label:"Email",email_ph:"onoma@email.com",pass_label:"Κωδικός",login_btn:"Είσοδος",or:"ή",register_btn:"Εγγραφή",admin_text:"Είσοδος διαχειριστή:",admin_link:"Πίνακας Admin →",admin_active:"Πίνακας Admin ενεργός",admin_role:"Διαχειριστής",nav_home:"Αρχική",nav_stories:"Ιστορίες",nav_map:"Χάρτης",nav_market:"Αγορά",nav_events:"Εκδηλώσεις",nav_profile:"Προφίλ",quick_access:"Γρήγορη Πρόσβαση",tile_stories:"Οικ. Ιστορίες",tile_map:"Χάρτης",tile_map_sub:"Βαλκάνια & Τουρκία",tile_market:"Αγορά",tile_market_sub:"Αντίκες & Αναμνήσεις",tile_events:"Εκδηλώσεις",tile_events_sub:"12 σύλλογοι",recent:"Πρόσφατες Αναρτήσεις",share_btn:"+ Κοινοποίηση",all:"Όλα",tag_photo:"Με Φωτογραφία",key_routes:"Κύριες Διαδρομές",leg_gr:"Ελλάδα",leg_tr:"Τουρκία",leg_route:"Διαδρομές ανταλλαγής",sell_btn:"+ Πώληση",cat_antique:"Αντίκες",cat_book:"Βιβλία",cat_photo:"Φωτογραφίες",cat_craft:"Χειροτεχνία",item1_name:"Οθ. κλειδαριά μπαούλου",item2_name:"Φωτογραφία εποχής 1923",item3_name:"Χειρόγραφο ευχολόγιο",item4_name:"Μακέτα Γκιουλτσεμάλ",buy_btn:"Προβολή",add_event:"+ Προσθήκη",ev_assoc:"Σύλλογος",ev_ngo:"ΜΚΟ",ev_event:"Εκδήλωση",ev_news:"Νέα",jan:"Ιαν",mar:"Μαρ",apr:"Απρ",may:"Μαΐ",ev1_title:"101η Επέτειος Ανταλλαγής",ev3_title:"Συνάντηση Απογόνων",ev4_title:"Ντοκιμαντέρ Γκιουλτσεμάλ",ev_tag_event:"Εκδήλωση",ev_tag_exhibit:"Έκθεση",ev_tag_meet:"Συνάντηση",ev_tag_cinema:"Κινηματογράφος",prof_origin_ex:"Καταγωγή Θεσ/νίκη",stat_stories:"Ιστορίες",stat_likes:"Μου αρέσει",stat_conn:"Συνδέσεις",origin_section:"Στοιχεία Καταγωγής",from_lbl:"Από",to_lbl:"Προς",gen_lbl:"Γενιά",gen_val:"3η γενιά",my_stories:"Οι Ιστορίες μου",admin_title:"Πίνακας Διαχείρισης",admin_sub:"Διαχείριση & Στατιστικά",total_stories:"Σύνολο Ιστοριών",total_members:"Εγγεγραμμένα Μέλη",market_items:"Αγγελίες",total_events:"Εκδηλώσεις",content_mgmt:"Διαχείριση Περιεχομένου",pending_stories:"Ιστορίες προς έγκριση",add_event_admin:"Νέα εκδήλωση",market_approval:"Έγκριση αγγελιών",user_mgmt:"Χρήστες",add:"+ Προσθήκη",waiting:"3 εκκρεμή",view:"Προβολή",back_site:"← Επιστροφή"},
+  en:{eyebrow:"1923 — Treaty of Lausanne",hero_em:"Ανταλλαγή · Mübadele",hero_sub:"The shared memory of two peoples",email_label:"Email",email_ph:"name@email.com",pass_label:"Password",login_btn:"Sign In",or:"or",register_btn:"Create Account",admin_text:"Administrator login:",admin_link:"Admin Panel →",admin_active:"Admin Panel active",admin_role:"Administrator",nav_home:"Home",nav_stories:"Stories",nav_map:"Map",nav_market:"Market",nav_events:"Events",nav_profile:"Profile",quick_access:"Quick Access",tile_stories:"Family Stories",tile_map:"Map",tile_map_sub:"Balkans & Turkey",tile_market:"Marketplace",tile_market_sub:"Antiques & Memorabilia",tile_events:"Events & News",tile_events_sub:"12 associations",recent:"Recent Posts",share_btn:"+ Share",all:"All",tag_photo:"With Photo",key_routes:"Featured Routes",leg_gr:"Greece",leg_tr:"Turkey",leg_route:"Migration routes",sell_btn:"+ Sell",cat_antique:"Antiques",cat_book:"Books",cat_photo:"Photos",cat_craft:"Handcraft",item1_name:"Ottoman chest lock",item2_name:"1923 period photograph",item3_name:"Handwritten prayer book",item4_name:"Gülcemal ship model",buy_btn:"View",add_event:"+ Add",ev_assoc:"Association",ev_ngo:"NGO",ev_event:"Event",ev_news:"News",jan:"Jan",mar:"Mar",apr:"Apr",may:"May",ev1_title:"101st Anniversary of the Exchange",ev3_title:"Exchange Descendants Gathering",ev4_title:"Gülcemal Documentary Screening",ev_tag_event:"Event",ev_tag_exhibit:"Exhibition",ev_tag_meet:"Gathering",ev_tag_cinema:"Cinema",prof_origin_ex:"Thessaloniki origin · İzmir",stat_stories:"Stories",stat_likes:"Likes",stat_conn:"Connections",origin_section:"Origin Information",from_lbl:"From",to_lbl:"To",gen_lbl:"Generation",gen_val:"3rd generation",my_stories:"My Stories",admin_title:"Admin Dashboard",admin_sub:"Content management & statistics",total_stories:"Total Stories",total_members:"Registered Members",market_items:"Market Listings",total_events:"Events",content_mgmt:"Content Management",pending_stories:"Stories pending approval",add_event_admin:"Add new event / news",market_approval:"Market listing approval",user_mgmt:"User management",add:"+ Add",waiting:"3 pending",view:"View",back_site:"← Back to Site"}
+};
+let lang='tr';
+function setLang(l){
+  lang=l;
+  document.querySelectorAll('.lb').forEach(b=>b.classList.toggle('on',b.textContent.trim()===(l==='tr'?'TR':l==='el'?'ΕΛ':'EN')));
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(T[l]&&T[l][k])el.textContent=T[l][k]});
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{const k=el.getAttribute('data-i18n-ph');if(T[l]&&T[l][k])el.placeholder=T[l][k]});
+}
+
+// ===== NAV =====
+function goHome(){
+  document.getElementById('pg-login').classList.remove('on');
+  document.getElementById('pg-admin').classList.remove('on');
+  document.getElementById('pg-home').classList.add('on');
+  initMap();
+}
+function goAdmin(){
+  document.getElementById('pg-login').classList.remove('on');
+  document.getElementById('pg-home').classList.remove('on');
+  document.getElementById('pg-admin').classList.add('on');
+}
+function sw(btn,id){
+  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  if(id==='p-map')setTimeout(()=>{if(window._map)window._map.invalidateSize()},120);
+}
+function swN(id){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  document.querySelectorAll('.ni').forEach(b=>{b.classList.toggle('on',(b.getAttribute('onclick')||'').includes(id))});
+  if(id==='p-map')setTimeout(()=>{if(window._map)window._map.invalidateSize()},120);
+}
+
+// ===== MAP =====
+let mapInited=false;
+function initMap(){
+  if(mapInited)return;
+  mapInited=true;
+  const map=L.map('map',{center:[40.0,25.5],zoom:6,zoomControl:true,attributionControl:false});
+  window._map=map;
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:18}).addTo(map);
+
+  const gr=[
+    {n:'Selanik',g:'Θεσσαλονίκη',lat:40.64,lng:22.94,c:342},
+    {n:'Kavala',g:'Καβάλα',lat:40.93,lng:24.41,c:189},
+    {n:'Serez',g:'Σέρρες',lat:41.09,lng:23.55,c:97},
+    {n:'Dedeağaç',g:'Αλεξανδρούπολη',lat:40.85,lng:25.87,c:74},
+    {n:'Florina',g:'Φλώρινα',lat:40.78,lng:21.41,c:48},
+    {n:'Vodina',g:'Βέροια',lat:40.52,lng:22.20,c:35},
+  ];
+  const tr=[
+    {n:'İzmir',lat:38.42,lng:27.14,c:342},
+    {n:'Bursa',lat:40.18,lng:29.06,c:189},
+    {n:'Balıkesir',lat:39.65,lng:27.88,c:97},
+    {n:'Manisa',lat:38.61,lng:27.43,c:74},
+    {n:'Aydın',lat:37.85,lng:27.84,c:58},
+    {n:'Çanakkale',lat:40.15,lng:26.41,c:44},
+  ];
+  const routes=[
+    [[40.64,22.94],[38.42,27.14]],
+    [[40.93,24.41],[40.18,29.06]],
+    [[41.09,23.55],[39.65,27.88]],
+    [[40.85,25.87],[38.42,27.14]],
+    [[40.78,21.41],[40.18,29.06]],
+    [[40.52,22.20],[38.61,27.43]],
+  ];
+  function mkIcon(col,sz){
+    return L.divIcon({className:'',html:`<div style="width:${sz}px;height:${sz}px;background:${col};border-radius:50%;border:2px solid rgba(255,255,255,0.2);box-shadow:0 0 10px ${col}55"></div>`,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
+  }
+  gr.forEach(c=>{
+    const sz=Math.max(9,Math.min(17,c.c/25));
+    L.marker([c.lat,c.lng],{icon:mkIcon('#E24B4A',sz)}).addTo(map)
+      .bindPopup(`<div class='pop-title'>${c.n}</div><div class='pop-gr'>${c.g}</div><div class='pop-count'>${c.c} hikaye</div>`,{className:'custom-popup'});
+  });
+  tr.forEach(c=>{
+    const sz=Math.max(9,Math.min(17,c.c/25));
+    L.marker([c.lat,c.lng],{icon:mkIcon('#1D9E75',sz)}).addTo(map)
+      .bindPopup(`<div class='pop-title'>${c.n}</div><div class='pop-count'>${c.c} hikaye</div>`,{className:'custom-popup'});
+  });
+  routes.forEach(r=>{
+    L.polyline(r,{color:'#c49a5a',weight:1.8,opacity:0.55,dashArray:'7,5'}).addTo(map);
+  });
+}
+function flyTo(lat,lng,zoom){
+  if(!window._map)return;
+  swN('p-map');
+  setTimeout(()=>{window._map.flyTo([lat,lng],zoom,{duration:1.3});},150);
+}
+</script>
+</div>
+</body>
+</html>
